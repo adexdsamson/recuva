@@ -4,7 +4,6 @@ import {
   ContentState,
   Editor,
   EditorState,
-  RawDraftContentState,
   RichUtils,
   convertToRaw,
   ContentBlock,
