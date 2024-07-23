@@ -34,6 +34,7 @@ export const TextInput = (props: TextInputProps) => {
         <span>{props.startAdornment}</span>
         <Input
           {...props}
+          value={props?.value ?? ""}
           className="w-full text-sm leading-5 border-0 text-stone-400 !focus-visible:ring-0 !ring-0 !focus:border-0 !focus:outline-none px-0 placeholder:text-xs placeholder:text-gray-300 flex-1 focus-visible:ring-offset-0"
         />
         <span>{props.endAdornment}</span>
