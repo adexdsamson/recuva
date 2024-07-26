@@ -101,3 +101,12 @@ export interface AccountDetail {
   created_at: Date;
   updated_at: Date;
 }
+
+
+export interface Apikeys {
+  user: string;
+  prefix: string;
+  key_str: string;
+  name: string;
+  created: Date;
+}

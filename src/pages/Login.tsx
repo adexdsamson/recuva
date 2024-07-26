@@ -66,10 +66,13 @@ export const Login = () => {
     mutationFn: (payload) => postRequest("auth/login/", payload),
   });
 
-  const { ForgeForm } = useForge<FormState>({
+  const { ForgeForm, getValues } = useForge<FormState>({
     resolver: yupResolver(schema),
     fieldProps: renderInputs,
   });
+
+  console.log("hyu",getValues());
+  
 
   const handleSubmit = async (data: FormState) => {
     const Toast_Title = "Authentication";

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { deleteRequest } from "@/lib/axiosInstance";
 import { ApiResponse, ApiResponseError } from "@/types";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FiTrash } from "react-icons/fi";
 import {
   Dialog,
@@ -25,9 +25,12 @@ type ConfirmAlertProps = {
   trigger?: ReactNode;
   onClose?: (open: boolean) => void;
   logout?: boolean;
+  queryKey?: string[]
 };
+
 export const ConfirmAlert = (props: ConfirmAlertProps) => {
   const setReset = useSetReset();
+  const queryClient = useQueryClient();
   const toastHandlers = useToastHandlers();
 
   const mutation = useMutation<ApiResponse<any>, ApiResponseError, undefined>({
@@ -48,6 +51,7 @@ export const ConfirmAlert = (props: ConfirmAlertProps) => {
         TOAST_TITLE,
         result.data.message ?? "Successfully deleted"
       );
+      queryClient.invalidateQueries({ queryKey: props?.queryKey ?? [] });
     } catch (error) {
       const err = error as ApiResponseError;
       toastHandlers.error(TOAST_TITLE, err);

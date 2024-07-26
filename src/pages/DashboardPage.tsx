@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import Container from "@/components/layouts/Container";
 import { Button } from "@/components/ui/button";
 import { FaPlus } from "react-icons/fa";
@@ -13,7 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { FieldProps, FormPropsRef, useForge } from "@/lib/forge";
 import { useToastHandlers } from "@/hooks/useToaster";
-import { ApiResponse, ApiResponseError, CampaignResponseList } from "@/types";
+import {
+  Apikeys,
+  ApiResponse,
+  ApiResponseError,
+  CampaignResponseList,
+} from "@/types";
 import {
   TextInput,
   TextInputProps,
@@ -21,9 +27,9 @@ import {
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useNavigate } from "react-router-dom";
-import { useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { getRequest, postRequest } from "@/lib/axiosInstance";
+import { forwardRef, ReactNode, useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteRequest, getRequest, postRequest } from "@/lib/axiosInstance";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { MdOutlineSignalCellularAlt } from "react-icons/md";
 import {
@@ -43,18 +49,32 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { createPageNumbers } from "@/lib/utils";
+import { useDebounceValue } from "usehooks-ts";
 import { Input } from "@/components/ui/input";
+import { ConfirmAlert } from "@/components/layouts/ConfirmAlert";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Trash } from "lucide-react";
 
 export const DashboardPage = () => {
-  const [pageIndex, setPageIndex] = useState(1);
   const navigate = useNavigate();
+  const [pageIndex, setPageIndex] = useState(1);
+  const [searchText, setSearchText] = useState<string | null>(null);
+  const [search, setSearch] = useDebounceValue<string | null>(null, 500);
 
   const { data, isPending } = useQuery<
     AxiosResponse<CampaignResponseList>,
     ApiResponseError
   >({
-    queryKey: ["campaigns", pageIndex],
-    queryFn: () => getRequest("campaigns/"),
+    queryKey: ["campaigns", pageIndex, search],
+    queryFn: () =>
+      getRequest(search ? `campaigns/?search=${search}` : "campaigns/"),
   });
 
   if (isPending) {
@@ -73,7 +93,18 @@ export const DashboardPage = () => {
     <Container noGutter className="pt-10">
       <div className="flex items-center justify-between">
         <h5 className="text-2xl font-bold text-[#232F3E]">Recent Campaigns</h5>
-        <Campaign />
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">Settings</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              <ApiKey />
+              <CreateChannel />
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Campaign />
+        </div>
       </div>
 
       {!isPending && campaigns?.length === 0 && (
@@ -89,10 +120,19 @@ export const DashboardPage = () => {
 
       {campaigns?.length !== 0 && (
         <div className="mt-16">
-          <Input placeholder="Search....." className="w-80" />
+          <Input
+            className="w-80"
+            value={searchText ?? ""}
+            placeholder="Search....."
+            onChange={(event) => {
+              setSearchText(event.target.value);
+              setSearch(event.target.value);
+            }}
+          />
 
           {campaigns?.map((item) => (
             <CampaignItem
+              id={item.id}
               name={item.name}
               key={item.id}
               onClick={() =>
@@ -245,7 +285,212 @@ const Campaign = () => {
   );
 };
 
+const channelSchema = yup.object({
+  sms_endpoint: yup.string().required(),
+  email_endpoint: yup.string().required(),
+});
+
+const CreateChannel = () => {
+  const formRef = useRef<FormPropsRef | null>(null);
+  const toastHandler = useToastHandlers();
+  const renderInput: FieldProps<SlotProps>[] = [
+    {
+      name: "sms_endpoint",
+      label: "SMS",
+      placeholder: "Enter SMS provider URL",
+      component: TextInput,
+    },
+    {
+      name: "email_endpoint",
+      label: "Email",
+      placeholder: "Enter Email provider URL",
+      component: TextInput,
+    },
+  ];
+
+  const { ForgeForm, setValue } = useForge<{
+    sms_endpoint: string;
+    email_endpoint: string;
+  }>({
+    defaultValues: {},
+    resolver: yupResolver(channelSchema),
+    fieldProps: renderInput,
+  });
+
+  const { isSuccess, data } = useQuery<
+    ApiResponse<{
+      sms_endpoint: string;
+      email_endpoint: string;
+      api_key: string;
+    }>,
+    ApiResponseError
+  >({
+    queryKey: ["channel"],
+    queryFn: () => getRequest("organization/channels/"),
+  });
+
+  const { mutateAsync, isPending } = useMutation<
+    ApiResponse<CampaignResponse>,
+    ApiResponseError,
+    {
+      sms_endpoint: string;
+      email_endpoint: string;
+    }
+  >({
+    mutationFn: (payload) => postRequest("organization/channels/", payload),
+  });
+
+  const handleSubmit = async (data: {
+    sms_endpoint: string;
+    email_endpoint: string;
+  }) => {
+    const TOAST_TITLE = "Campaign Channel";
+    try {
+      const result = await mutateAsync(data);
+
+      if (!result.data.status) {
+        toastHandler.error(TOAST_TITLE, result.data.message);
+        return;
+      }
+
+      toastHandler.success(TOAST_TITLE, "");
+    } catch (error) {
+      const err = error as ApiResponseError;
+      toastHandler.error(TOAST_TITLE, err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuccess) {
+      setValue("email_endpoint", data.data.data.email_endpoint);
+      setValue("sms_endpoint", data.data.data.sms_endpoint);
+    }
+  }, [isSuccess, data]);
+
+  return (
+    <DialogItem triggerChildren="Add Channel">
+      <DialogHeader>
+        <DialogTitle>Campaign Channel</DialogTitle>
+        <DialogDescription>
+          Provide url endpoint for the channels available
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <ForgeForm ref={formRef} onSubmit={handleSubmit} control="forger" />
+      </div>
+      <DialogFooter>
+        <Button
+          isLoading={isPending}
+          onClick={() => formRef.current?.onSubmit()}
+          type="submit"
+        >
+          Save changes
+        </Button>
+      </DialogFooter>
+    </DialogItem>
+  );
+};
+
+type API_KEY_Payload = {
+  key_name: string;
+};
+
+const apikeySchema = yup.object({
+  key_name: yup.string().required(),
+});
+
+const ApiKey = () => {
+  const toastHandler = useToastHandlers();
+  const queryClient = useQueryClient();
+
+  const { ForgeForm } = useForge({
+    defaultValues: {},
+    resolver: yupResolver(apikeySchema),
+  });
+
+  const { data } = useQuery<ApiResponse<Apikeys[]>, ApiResponseError>({
+    queryKey: ["api-key"],
+    queryFn: () => getRequest("auth/apikey/"),
+  });
+
+  const { mutate, isPending } = useMutation<
+    ApiResponse<Apikeys>,
+    ApiResponseError,
+    API_KEY_Payload
+  >({
+    mutationFn: (payload) => postRequest("auth/apikey/", payload),
+    onError: (error) => {
+      toastHandler.error("API keys", error.message);
+    },
+    onSuccess: (res) => {
+      toastHandler.success("API keys", res.data.message);
+      queryClient.invalidateQueries({ queryKey: ["api-key"] });
+    },
+  });
+
+  const deleteMutations = useMutation<
+    ApiResponse,
+    ApiResponseError,
+    { prefix: string }
+  >({
+    mutationFn: (payload) => deleteRequest("auth/apikey/", payload),
+    onError: (error) => {
+      toastHandler.error("API keys", error.message);
+    },
+    onSuccess: (res) => {
+      toastHandler.success("API keys", res.data.message);
+      queryClient.invalidateQueries({ queryKey: ["api-key"] });
+    },
+  });
+
+  return (
+    <SheetItem triggerChildren="Api Keys">
+      <SheetHeader>
+        <SheetTitle>API Keys</SheetTitle>
+        <SheetDescription>
+          Make changes to your profile here. Click save when you're done.
+        </SheetDescription>
+      </SheetHeader>
+      <ForgeForm onSubmit={mutate} className="flex items-center gap-2 mt-8">
+        <Input name="key_name" placeholder="Enter api-key name" />
+        <Button type="submit" isLoading={isPending}>
+          Create
+        </Button>
+      </ForgeForm>
+      <div className="mt-10">
+        <h4 className="border-b-2 mb-5 pb-2 ">API Keys</h4>
+        {data?.data.data.map((item) => (
+          <ApiKeyItem
+            key={item.name}
+            name={item.name}
+            onDelete={() => deleteMutations.mutate({ prefix: item.prefix })}
+          />
+        ))}
+      </div>
+    </SheetItem>
+  );
+};
+
+const ApiKeyItem = ({
+  name,
+  onDelete,
+}: {
+  name: string;
+  onDelete: () => void;
+}) => {
+  return (
+    <div className="flex items-center justify-between px-3 py-2 border rounded-md">
+      <h4 className="text-sm text-gray-600">{name}</h4>
+      <Trash
+        onClick={onDelete}
+        className="h-4 w-4 text-red-600 cursor-pointer"
+      />
+    </div>
+  );
+};
+
 type CampaignItem = {
+  id: string;
   name: string;
   onClick: () => void;
 };
@@ -256,21 +501,90 @@ const CampaignItem = (props: CampaignItem) => {
       <h4 className="text-xl font-semibold">{props.name}</h4>
       <div className="flex items-center gap-4">
         <Button onClick={props.onClick}>
-          {" "}
           <MdOutlineSignalCellularAlt className="mr-2 h-4 w-4" /> View Report
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <div className="bg-primary/30 rounded-full grid place-items-center h-10 w-10">
-              <ChevronDownIcon className="text-primary h-5 w-5" />
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem>Delete</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ConfirmAlert
+          text="Are you sure you want to delete this campaign? Deleted campaign can’t be recovered again after deleting"
+          title="Delete Campaign"
+          url={`campaigns/${props.id}/`}
+          queryKey={["campaigns"]}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="bg-primary/30 rounded-full grid place-items-center h-10 w-10">
+                <ChevronDownIcon className="text-primary h-5 w-5" />
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DialogTrigger asChild>
+                <DropdownMenuItem>Delete</DropdownMenuItem>
+              </DialogTrigger>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ConfirmAlert>
       </div>
     </div>
   );
 };
+
+type DialogItemProps = {
+  triggerChildren?: ReactNode;
+  children?: ReactNode;
+  onSelect?: () => void;
+  onOpenChange?: (open: boolean) => void;
+};
+
+const DialogItem = forwardRef<HTMLDivElement, DialogItemProps>((props, ref) => {
+  const { triggerChildren, children, onSelect, onOpenChange, ...itemProps } =
+    props;
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        onOpenChange?.(open);
+      }}
+    >
+      <DialogTrigger asChild>
+        <DropdownMenuItem
+          {...itemProps}
+          ref={ref}
+          className="DropdownMenuItem"
+          onSelect={(event) => {
+            event.preventDefault();
+            onSelect && onSelect();
+          }}
+        >
+          {triggerChildren}
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="">{children}</DialogContent>
+    </Dialog>
+  );
+});
+
+const SheetItem = forwardRef<HTMLDivElement, DialogItemProps>((props, ref) => {
+  const { triggerChildren, children, onSelect, onOpenChange, ...itemProps } =
+    props;
+  return (
+    <Sheet
+      onOpenChange={(open) => {
+        onOpenChange?.(open);
+      }}
+    >
+      <SheetTrigger asChild>
+        <DropdownMenuItem
+          {...itemProps}
+          ref={ref}
+          className="DropdownMenuItem"
+          onSelect={(event) => {
+            event.preventDefault();
+            onSelect && onSelect();
+          }}
+        >
+          {triggerChildren}
+        </DropdownMenuItem>
+      </SheetTrigger>
+      <SheetContent className="">{children}</SheetContent>
+    </Sheet>
+  );
+});
