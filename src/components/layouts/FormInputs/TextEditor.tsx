@@ -68,21 +68,21 @@ export const TextEditor = (props: TextEditorProps) => {
     "left"
   );
 
-  const convertToString = (content: RawDraftContentState) => {
-    let plaintext = "";
+  // const convertToString = (content: RawDraftContentState) => {
+  //   let plaintext = "";
 
-    const contentState = content.blocks?.filter((item) => item.text !== " ");
+  //   const contentState = content.blocks?.filter((item) => item.text !== " ");
 
-    const allContent: { type: string; text: string; index: number }[] = [];
+  //   const allContent: { type: string; text: string; index: number }[] = [];
 
-    contentState.forEach((block, index) => {
-      allContent.push({ type: "block", text: block.text, index });
-    });
+  //   contentState.forEach((block, index) => {
+  //     allContent.push({ type: "block", text: block.text, index });
+  //   });
 
-    plaintext = allContent.map((item) => item.text).join(" ");
+  //   plaintext = allContent.map((item) => item.text).join(" ");
 
-    return plaintext;
-  };
+  //   return plaintext;
+  // };
 
   const onChange = (editorState: EditorState) => {
     // logState()
