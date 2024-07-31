@@ -15,7 +15,7 @@ import {
 import { FieldProps, FormPropsRef, useForge } from "@/lib/forge";
 import { useToastHandlers } from "@/hooks/useToaster";
 import {
-  Apikeys,
+  // Apikeys,
   ApiResponse,
   ApiResponseError,
   CampaignResponseList,
@@ -28,8 +28,13 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useNavigate } from "react-router-dom";
 import { forwardRef, ReactNode, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteRequest, getRequest, postRequest } from "@/lib/axiosInstance";
+import { useMutation, useQuery, } from "@tanstack/react-query";
+import {
+  // deleteRequest,
+  getRequest,
+  postRequest,
+  putRequest,
+} from "@/lib/axiosInstance";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { MdOutlineSignalCellularAlt } from "react-icons/md";
 import {
@@ -52,15 +57,18 @@ import { createPageNumbers } from "@/lib/utils";
 import { useDebounceValue } from "usehooks-ts";
 import { Input } from "@/components/ui/input";
 import { ConfirmAlert } from "@/components/layouts/ConfirmAlert";
+// import {
+//   Sheet,
+//   SheetContent,
+//   SheetDescription,
+//   SheetHeader,
+//   SheetTitle,
+//   SheetTrigger,
+// } from "@/components/ui/sheet";
+// import { Trash } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Trash } from "lucide-react";
+  TextSelectProps,
+} from "@/components/layouts/FormInputs/TextSelect";
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
@@ -99,7 +107,6 @@ export const DashboardPage = () => {
               <Button variant="outline">Settings</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56">
-              <ApiKey />
               <CreateChannel />
             </DropdownMenuContent>
           </DropdownMenu>
@@ -198,7 +205,7 @@ const schema = yup.object({
   name: yup.string().required(),
 });
 
-type SlotProps = TextInputProps;
+type SlotProps = TextInputProps | TextSelectProps;
 
 interface CampaignResponse {
   status: boolean;
@@ -288,11 +295,20 @@ const Campaign = () => {
 const channelSchema = yup.object({
   sms_endpoint: yup.string().required(),
   email_endpoint: yup.string().required(),
+  api_key: yup.string().required(),
 });
+
+type ChannelForm = {
+  sms_endpoint: string;
+  email_endpoint: string;
+  api_key: string;
+};
 
 const CreateChannel = () => {
   const formRef = useRef<FormPropsRef | null>(null);
   const toastHandler = useToastHandlers();
+
+
   const renderInput: FieldProps<SlotProps>[] = [
     {
       name: "sms_endpoint",
@@ -306,23 +322,22 @@ const CreateChannel = () => {
       placeholder: "Enter Email provider URL",
       component: TextInput,
     },
+    {
+      name: "api_key",
+      label: "Api Key",
+      placeholder: "Enter you API verification key",
+      component: TextInput,
+    },
   ];
 
-  const { ForgeForm, setValue } = useForge<{
-    sms_endpoint: string;
-    email_endpoint: string;
-  }>({
+  const { ForgeForm, setValue } = useForge<ChannelForm>({
     defaultValues: {},
     resolver: yupResolver(channelSchema),
     fieldProps: renderInput,
   });
 
   const { isSuccess, data } = useQuery<
-    ApiResponse<{
-      sms_endpoint: string;
-      email_endpoint: string;
-      api_key: string;
-    }>,
+    ApiResponse<ChannelForm>,
     ApiResponseError
   >({
     queryKey: ["channel"],
@@ -332,18 +347,12 @@ const CreateChannel = () => {
   const { mutateAsync, isPending } = useMutation<
     ApiResponse<CampaignResponse>,
     ApiResponseError,
-    {
-      sms_endpoint: string;
-      email_endpoint: string;
-    }
+    ChannelForm
   >({
-    mutationFn: (payload) => postRequest("organization/channels/", payload),
+    mutationFn: (payload) => putRequest("organization/channels/", payload),
   });
 
-  const handleSubmit = async (data: {
-    sms_endpoint: string;
-    email_endpoint: string;
-  }) => {
+  const handleSubmit = async (data:ChannelForm) => {
     const TOAST_TITLE = "Campaign Channel";
     try {
       const result = await mutateAsync(data);
@@ -353,7 +362,7 @@ const CreateChannel = () => {
         return;
       }
 
-      toastHandler.success(TOAST_TITLE, "");
+      toastHandler.success(TOAST_TITLE, "Saved");
     } catch (error) {
       const err = error as ApiResponseError;
       toastHandler.error(TOAST_TITLE, err);
@@ -364,8 +373,9 @@ const CreateChannel = () => {
     if (isSuccess) {
       setValue("email_endpoint", data.data.data.email_endpoint);
       setValue("sms_endpoint", data.data.data.sms_endpoint);
+      setValue("api_key", data.data.data.api_key);
     }
-  }, [isSuccess, data]);
+  }, [isSuccess]);
 
   return (
     <DialogItem triggerChildren="Add Channel">
@@ -391,103 +401,103 @@ const CreateChannel = () => {
   );
 };
 
-type API_KEY_Payload = {
-  key_name: string;
-};
+// type API_KEY_Payload = {
+//   key_name: string;
+// };
 
-const apikeySchema = yup.object({
-  key_name: yup.string().required(),
-});
+// const apikeySchema = yup.object({
+//   key_name: yup.string().required(),
+// });
 
-const ApiKey = () => {
-  const toastHandler = useToastHandlers();
-  const queryClient = useQueryClient();
+// const ApiKey = () => {
+//   const toastHandler = useToastHandlers();
+//   const queryClient = useQueryClient();
 
-  const { ForgeForm } = useForge({
-    defaultValues: {},
-    resolver: yupResolver(apikeySchema),
-  });
+//   const { ForgeForm } = useForge({
+//     defaultValues: {},
+//     resolver: yupResolver(apikeySchema),
+//   });
 
-  const { data } = useQuery<ApiResponse<Apikeys[]>, ApiResponseError>({
-    queryKey: ["api-key"],
-    queryFn: () => getRequest("auth/apikey/"),
-  });
+//   const { data } = useQuery<ApiResponse<Apikeys[]>, ApiResponseError>({
+//     queryKey: ["api-key"],
+//     queryFn: () => getRequest("auth/apikey/"),
+//   });
 
-  const { mutate, isPending } = useMutation<
-    ApiResponse<Apikeys>,
-    ApiResponseError,
-    API_KEY_Payload
-  >({
-    mutationFn: (payload) => postRequest("auth/apikey/", payload),
-    onError: (error) => {
-      toastHandler.error("API keys", error.message);
-    },
-    onSuccess: (res) => {
-      toastHandler.success("API keys", res.data.message);
-      queryClient.invalidateQueries({ queryKey: ["api-key"] });
-    },
-  });
+//   const { mutate, isPending } = useMutation<
+//     ApiResponse<Apikeys>,
+//     ApiResponseError,
+//     API_KEY_Payload
+//   >({
+//     mutationFn: (payload) => postRequest("auth/apikey/", payload),
+//     onError: (error) => {
+//       toastHandler.error("API keys", error.message);
+//     },
+//     onSuccess: (res) => {
+//       toastHandler.success("API keys", res.data.message);
+//       queryClient.invalidateQueries({ queryKey: ["api-key"] });
+//     },
+//   });
 
-  const deleteMutations = useMutation<
-    ApiResponse,
-    ApiResponseError,
-    { prefix: string }
-  >({
-    mutationFn: (payload) => deleteRequest("auth/apikey/", payload),
-    onError: (error) => {
-      toastHandler.error("API keys", error.message);
-    },
-    onSuccess: (res) => {
-      toastHandler.success("API keys", res.data.message);
-      queryClient.invalidateQueries({ queryKey: ["api-key"] });
-    },
-  });
+//   const deleteMutations = useMutation<
+//     ApiResponse,
+//     ApiResponseError,
+//     { prefix: string }
+//   >({
+//     mutationFn: (payload) => deleteRequest("auth/apikey/", payload),
+//     onError: (error) => {
+//       toastHandler.error("API keys", error.message);
+//     },
+//     onSuccess: (res) => {
+//       toastHandler.success("API keys", res.data.message);
+//       queryClient.invalidateQueries({ queryKey: ["api-key"] });
+//     },
+//   });
 
-  return (
-    <SheetItem triggerChildren="Api Keys">
-      <SheetHeader>
-        <SheetTitle>API Keys</SheetTitle>
-        <SheetDescription>
-          Make changes to your profile here. Click save when you're done.
-        </SheetDescription>
-      </SheetHeader>
-      <ForgeForm onSubmit={mutate} className="flex items-center gap-2 mt-8">
-        <Input name="key_name" placeholder="Enter api-key name" />
-        <Button type="submit" isLoading={isPending}>
-          Create
-        </Button>
-      </ForgeForm>
-      <div className="mt-10">
-        <h4 className="border-b-2 mb-5 pb-2 ">API Keys</h4>
-        {data?.data.data.map((item) => (
-          <ApiKeyItem
-            key={item.name}
-            name={item.name}
-            onDelete={() => deleteMutations.mutate({ prefix: item.prefix })}
-          />
-        ))}
-      </div>
-    </SheetItem>
-  );
-};
+//   return (
+//     <SheetItem triggerChildren="Api Keys">
+//       <SheetHeader>
+//         <SheetTitle>API Keys</SheetTitle>
+//         <SheetDescription>
+//           Make changes to your profile here. Click save when you're done.
+//         </SheetDescription>
+//       </SheetHeader>
+//       <ForgeForm onSubmit={mutate} className="flex items-center gap-2 mt-8">
+//         <Input name="key_name" placeholder="Enter api-key name" />
+//         <Button type="submit" isLoading={isPending}>
+//           Create
+//         </Button>
+//       </ForgeForm>
+//       <div className="mt-10">
+//         <h4 className="border-b-2 mb-5 pb-2 ">API Keys</h4>
+//         {data?.data.data.map((item) => (
+//           <ApiKeyItem
+//             key={item.name}
+//             name={item.name}
+//             onDelete={() => deleteMutations.mutate({ prefix: item.prefix })}
+//           />
+//         ))}
+//       </div>
+//     </SheetItem>
+//   );
+// };
 
-const ApiKeyItem = ({
-  name,
-  onDelete,
-}: {
-  name: string;
-  onDelete: () => void;
-}) => {
-  return (
-    <div className="flex items-center justify-between px-3 py-2 border rounded-md">
-      <h4 className="text-sm text-gray-600">{name}</h4>
-      <Trash
-        onClick={onDelete}
-        className="h-4 w-4 text-red-600 cursor-pointer"
-      />
-    </div>
-  );
-};
+// const ApiKeyItem = ({
+//   name,
+//   onDelete,
+// }: {
+//   name: string;
+//   onDelete: () => void;
+// }) => {
+//   return (
+//     <div className="flex items-center justify-between px-3 py-2 border rounded-md">
+//       <h4 className="text-sm text-gray-600">{name}</h4>
+//       <Trash
+//         onClick={onDelete}
+//         className="h-4 w-4 text-red-600 cursor-pointer"
+//       />
+//     </div>
+//   );
+// };
 
 type CampaignItem = {
   id: string;
@@ -562,29 +572,29 @@ const DialogItem = forwardRef<HTMLDivElement, DialogItemProps>((props, ref) => {
   );
 });
 
-const SheetItem = forwardRef<HTMLDivElement, DialogItemProps>((props, ref) => {
-  const { triggerChildren, children, onSelect, onOpenChange, ...itemProps } =
-    props;
-  return (
-    <Sheet
-      onOpenChange={(open) => {
-        onOpenChange?.(open);
-      }}
-    >
-      <SheetTrigger asChild>
-        <DropdownMenuItem
-          {...itemProps}
-          ref={ref}
-          className="DropdownMenuItem"
-          onSelect={(event) => {
-            event.preventDefault();
-            onSelect && onSelect();
-          }}
-        >
-          {triggerChildren}
-        </DropdownMenuItem>
-      </SheetTrigger>
-      <SheetContent className="">{children}</SheetContent>
-    </Sheet>
-  );
-});
+// const SheetItem = forwardRef<HTMLDivElement, DialogItemProps>((props, ref) => {
+//   const { triggerChildren, children, onSelect, onOpenChange, ...itemProps } =
+//     props;
+//   return (
+//     <Sheet
+//       onOpenChange={(open) => {
+//         onOpenChange?.(open);
+//       }}
+//     >
+//       <SheetTrigger asChild>
+//         <DropdownMenuItem
+//           {...itemProps}
+//           ref={ref}
+//           className="DropdownMenuItem"
+//           onSelect={(event) => {
+//             event.preventDefault();
+//             onSelect && onSelect();
+//           }}
+//         >
+//           {triggerChildren}
+//         </DropdownMenuItem>
+//       </SheetTrigger>
+//       <SheetContent className="">{children}</SheetContent>
+//     </Sheet>
+//   );
+// });
