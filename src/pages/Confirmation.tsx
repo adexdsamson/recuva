@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChevronRight } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Markdown from "react-markdown";
 import { useMutation } from "@tanstack/react-query";
 import { postRequest } from "@/lib/axiosInstance";
 import { ApiResponse, ApiResponseError } from "@/types";
@@ -20,6 +19,7 @@ type Payload = {
   message: string;
   subject: string;
   channel: string;
+  redirect_url: string;
 };
 
 export const Confirmation = () => {
@@ -43,14 +43,28 @@ export const Confirmation = () => {
   >({
     mutationFn: (payload) =>
       postRequest(`campaigns/${state.id}/confirm/`, payload),
-    onSuccess: (data) =>{
+    onSuccess: (data) => {
       toastHandler.success("Confirmation", data.data.message);
-      navigate('/dashboard/home')
+      navigate("/dashboard/home");
     },
     onError(error) {
       toastHandler.error("Confirmation", error.response?.data.message);
     },
   });
+
+  const getHtml = (data: string) => {
+    return `<!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Document</title>
+          </head>
+          <body>
+            <div dangerouslySetInnerHTML={{ __html: ${data} }} />
+          </body>
+        </html>`;
+  };
 
   return (
     <Container>
@@ -82,8 +96,9 @@ export const Confirmation = () => {
             onClick={() => {
               mutate({
                 channel: state.channel,
-                message: state.message,
+                message: getHtml(state.message),
                 subject: state.subject,
+                redirect_url: "/verification",
               });
             }}
           >
@@ -104,7 +119,7 @@ export const Confirmation = () => {
 
           <div className="mt-4">
             <p className="text-sm text-gray-300">Message</p>
-            <Markdown>{state.message}</Markdown>
+            <div dangerouslySetInnerHTML={{ __html: state.message }} />
           </div>
 
           <div className="mt-4">

@@ -9,6 +9,7 @@ import {
   convertToRaw,
   ContentBlock,
   CompositeDecorator,
+  convertFromHTML,
 } from "draft-js";
 import "draft-js/dist/Draft.css";
 import { useRef, useState } from "react";
@@ -28,7 +29,9 @@ import {
 } from "@radix-ui/react-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {draftToMarkdown} from "markdown-draft-js";
+import draftToHtml from "draftjs-to-html";
+import DOMPurify from "dompurify";
+import juice from "juice";
 
 const Link = (props: any): any => {
   const { url } = props.contentState.getEntity(props.entityKey).getData();
@@ -59,9 +62,16 @@ export const TextEditor = (props: TextEditorProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [showInput, setShowInput] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+
+  const blocksFromHTML = convertFromHTML(props.value ?? "");
+  const state = ContentState.createFromBlockArray(
+    blocksFromHTML.contentBlocks,
+    blocksFromHTML.entityMap
+  );
+
   const [editorState, setEditorState] = useState(
     props.value
-      ? EditorState.createWithContent(ContentState.createFromText(props.value))
+      ? EditorState.createWithContent(state)
       : EditorState.createEmpty(decorator)
   );
   const [textAlign, setTextAlign] = useState<"right" | "center" | "left">(
@@ -95,13 +105,13 @@ export const TextEditor = (props: TextEditorProps) => {
 
     const currentContentState = editorState.getCurrentContent();
 
-    const value = draftToMarkdown(convertToRaw(currentContentState));
+    const rawContentState = convertToRaw(currentContentState);
 
-    // const addedWhitespaceCharacters = value.replace(
-    //   /\s(?=[\w\s\d])/g,
-    //   "&nbsp;"
-    // );
-    props.onChange(value);
+    const rawHtml = draftToHtml(rawContentState);
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    const inlineStyledHtml = juice(cleanHtml);
+
+    props.onChange(inlineStyledHtml);
   };
 
   function handleKeyCommand(command: string, editorState: EditorState) {
@@ -136,8 +146,8 @@ export const TextEditor = (props: TextEditorProps) => {
     }
 
     if (inlineStyle.includes("link")) {
-      promptForLink(e)
-      return
+      promptForLink(e);
+      return;
     }
 
     const state = RichUtils.toggleInlineStyle(editorState, inlineStyle);
@@ -217,12 +227,12 @@ export const TextEditor = (props: TextEditorProps) => {
   let urlInput;
   if (showInput) {
     urlInput = (
-      <div className="mt-6 mb-2">
+      <div className="mt-6 mb-2 absolute -top-8 left-5 ">
         <Input
           onChange={(e) => setUrl(e.target.value)}
           ref={inputRef}
           type="text"
-          className="w-60 mr-2 inline-block"
+          className="w-60 mr-2 inline-block bg-white"
           placeholder="Enter the link url"
           value={url ?? ""}
           onKeyDown={onLinkInputKeyDown}
