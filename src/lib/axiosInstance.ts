@@ -4,12 +4,14 @@ import { config } from "@/config";
 
 export const getAxiosInstance = () => {
   const axiosInstance = axios.create();
-  const { token, setReset } = storeFunctions.getState();
+  const { token, setReset, verificationToken } = storeFunctions.getState();
 
   axiosInstance.defaults.baseURL = config.baseUrl;
 
   if (token) {
-    axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${
+      token ?? verificationToken
+    }`;
   }
 
   axiosInstance.interceptors.response.use(

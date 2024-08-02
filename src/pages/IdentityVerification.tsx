@@ -4,16 +4,16 @@ import { Button } from "@/components/ui/button";
 import PoweredByAutogon from "@/assets/power-by-autogon.svg";
 import { User2Icon } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useSetToken } from "@/store/authSlice";
+import { useSetVerificationToken } from "@/store/authSlice";
 import { useEffect } from "react";
 import { useToastHandlers } from "@/hooks/useToaster";
 
 export const IdentityVerification = () => {
   const navigate = useNavigate();
   const toastHandlers = useToastHandlers();
-  const setToken = useSetToken();
+  const setToken = useSetVerificationToken();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const token = searchParams.get("verificationToken");
 
   useEffect(() => {
     if (token) {
@@ -22,7 +22,9 @@ export const IdentityVerification = () => {
   }, [token]);
 
   const handleNavigate = () =>
-    !token ? toastHandlers.error("Missing Information", "Reopen link to continue") : navigate("/verification/identity");
+    !token
+      ? toastHandlers.error("Missing Information", "Reopen link to continue")
+      : navigate("/verification/face-identity");
 
   return (
     <Container className="flex flex-col h-[100dvh] md:w-[40rem] md:mx-auto ">

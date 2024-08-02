@@ -61,7 +61,7 @@ export const TextEditor = (props: TextEditorProps) => {
   const editorRef = useRef<Editor>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [showInput, setShowInput] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>("%link%");
 
   const blocksFromHTML = convertFromHTML(props.value ?? "");
   const state = ContentState.createFromBlockArray(
@@ -146,7 +146,8 @@ export const TextEditor = (props: TextEditorProps) => {
     }
 
     if (inlineStyle.includes("link")) {
-      promptForLink(e);
+      // promptForLink(e);
+      confirmLink(e);
       return;
     }
 
@@ -156,28 +157,28 @@ export const TextEditor = (props: TextEditorProps) => {
     onChange(state);
   }
 
-  const promptForLink = (e: any) => {
-    e.preventDefault();
-    const selection = editorState.getSelection();
-    if (!selection.isCollapsed()) {
-      const contentState = editorState.getCurrentContent();
-      const startKey = editorState.getSelection().getStartKey();
-      const startOffset = editorState.getSelection().getStartOffset();
-      const blockWithLinkAtBeginning = contentState.getBlockForKey(startKey);
-      const linkKey = blockWithLinkAtBeginning.getEntityAt(startOffset);
+  // const promptForLink = (e: any) => {
+  //   e.preventDefault();
+  //   const selection = editorState.getSelection();
+  //   if (!selection.isCollapsed()) {
+  //     const contentState = editorState.getCurrentContent();
+  //     const startKey = editorState.getSelection().getStartKey();
+  //     const startOffset = editorState.getSelection().getStartOffset();
+  //     const blockWithLinkAtBeginning = contentState.getBlockForKey(startKey);
+  //     const linkKey = blockWithLinkAtBeginning.getEntityAt(startOffset);
 
-      let urlValue = "";
-      if (linkKey) {
-        const linkInstance = contentState.getEntity(linkKey);
-        urlValue = linkInstance.getData().url;
-      }
+  //     let urlValue = "";
+  //     if (linkKey) {
+  //       const linkInstance = contentState.getEntity(linkKey);
+  //       urlValue = linkInstance.getData().url;
+  //     }
 
-      setShowInput(true);
-      setUrl(urlValue);
+  //     setShowInput(true);
+  //     setUrl(urlValue);
 
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  };
+  //     setTimeout(() => inputRef.current?.focus(), 0);
+  //   }
+  // };
 
   const confirmLink = (e: any) => {
     e.preventDefault();

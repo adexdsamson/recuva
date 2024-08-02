@@ -61,7 +61,7 @@ export const Confirmation = () => {
             <title>Document</title>
           </head>
           <body>
-            <div dangerouslySetInnerHTML={{ __html: ${data} }} />
+            ${data}
           </body>
         </html>`;
   };
@@ -98,7 +98,7 @@ export const Confirmation = () => {
                 channel: state.channel,
                 message: getHtml(state.message),
                 subject: state.subject,
-                redirect_url: "/verification",
+                redirect_url: import.meta.env.VITE_REDIRECT_URL,
               });
             }}
           >

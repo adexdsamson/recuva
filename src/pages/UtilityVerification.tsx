@@ -96,20 +96,24 @@ const VerificationContainer = () => {
         className="shrink-0 mt-12 rounded-md mx-auto border border-primary bg-zinc-300 w-80 h-[28rem] relative overflow-hidden"
         aria-label="Face verification frame"
       >
-        <Webcam
-          ref={webcamRef}
-          audio={false}
-          forceScreenshotSourceSize
-          screenshotFormat="image/jpeg"
-          videoConstraints={{
-            facingMode: "Front",
-          }}
-          style={{
-            height: 480,
-            objectFit: "cover",
-            width: "100%",
-          }}
-        />
+        {imgSrc ? (
+          <img src={imgSrc} className="w-full h-full object-cover" />
+        ) : (
+          <Webcam
+            ref={webcamRef}
+            audio={false}
+            forceScreenshotSourceSize
+            screenshotFormat="image/jpeg"
+            videoConstraints={{
+              facingMode: "Front",
+            }}
+            style={{
+              height: 480,
+              objectFit: "cover",
+              width: "100%",
+            }}
+          />
+        )}
       </div>
 
       {!imgSrc && (
@@ -119,13 +123,22 @@ const VerificationContainer = () => {
       )}
 
       {imgSrc && (
-        <Button
-          onClick={handleSubmit}
-          isLoading={isPending}
-          className="w-fit mx-auto mt-5"
-        >
-          Continue
-        </Button>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant={"outline"}
+            onClick={() => setImgSrc(null)}
+            className="w-fit mt-5"
+          >
+            Retake
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            isLoading={isPending}
+            className="w-fit mt-5"
+          >
+            Continue
+          </Button>
+        </div>
       )}
       {/* <p className="mt-7 mb-16 text-xs text-zinc-800">
         Put your face around the circle frame <br /> and blink your eyes.
