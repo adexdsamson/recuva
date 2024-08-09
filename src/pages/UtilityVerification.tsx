@@ -11,7 +11,7 @@ import {
   ApiResponseError,
   FaceVerificationResponse,
 } from "@/types";
-import { useToken } from "@/store/authSlice";
+import { useVerificationToken } from "@/store/authSlice";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { LuShieldCheck } from "react-icons/lu";
 
@@ -27,7 +27,7 @@ export const UtilityVerification = () => {
 };
 
 const VerificationContainer = () => {
-  const token = useToken();
+  const token = useVerificationToken();
   const toastHandler = useToastHandlers();
   const webcamRef = useRef<Webcam | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);

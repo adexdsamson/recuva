@@ -54,7 +54,7 @@ const VerificationContainer = () => {
     onError: (error) => {
       toastHandler.error(
         "ID Verification",
-        error.response?.data.message ?? "Unknown error"
+        error ?? "Unknown error"
       );
     },
   });

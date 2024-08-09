@@ -81,6 +81,7 @@ export interface DormantAccount {
   utility_bill: null;
   created_at: Date;
   updated_at: Date;
+  report: null | string
 }
 
 export interface FaceVerificationResponse {

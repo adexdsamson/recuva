@@ -96,7 +96,9 @@ export const AccountDetail = () => {
             <h4 className="text-lg">Report Details</h4>
           </div>
         </div>
-        <div></div>
+        <div>
+            {account?.report}
+        </div>
       </div>
     </Container>
   );
