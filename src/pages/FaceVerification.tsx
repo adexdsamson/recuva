@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import Webcam from "react-webcam";
 import Container from "@/components/layouts/Container";
 import PoweredByAutogon from "@/assets/power-by-autogon.svg";
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { postRequest } from "@/lib/axiosInstance";
@@ -14,6 +15,8 @@ import {
 import { useVerificationToken } from "@/store/authSlice";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { useNavigate } from "react-router-dom";
+import { nets, detectSingleFace, TinyFaceDetectorOptions, matchDimensions } from 'face-api.js';
+import { useInterval } from "usehooks-ts";
 
 export const FaceVerification = () => {
     return (
@@ -32,13 +35,15 @@ const VerificationContainer = () => {
     const toastHandler = useToastHandlers();
     const webcamRef = useRef<Webcam | null>(null);
     const [imgSrc, setImgSrc] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [showSmileMessage, setShowSmileMessage] = useState<"hasSmile" | "stopSmiling" | null>(null);
 
     // create a capture function
-    const capture = useCallback(() => {
+    const capture = () => {
         const imageSrc = webcamRef.current?.getScreenshot();
-        if (!imageSrc) return;
+        if (!imageSrc) return
         setImgSrc(imageSrc);
-    }, [webcamRef]);
+    };
 
     const { mutate, isPending } = useMutation<
         ApiResponse<FaceVerificationResponse>,
@@ -63,7 +68,71 @@ const VerificationContainer = () => {
         },
     });
 
-    const handleSubmit = () => {
+    const onInitializeModel = async () => {
+        Promise.all([
+            await nets.tinyFaceDetector.loadFromUri(`/models`),
+            await nets.faceExpressionNet.loadFromUri('/models')
+        ]).then(() => {
+            setIsInitialized(true)
+        }).catch((error) => {
+            console.log("onInitializeModel", error)
+            setIsInitialized(false)
+        })
+    }
+
+    useEffect(() => {
+        if (!isInitialized) {
+            onInitializeModel();
+        }
+    }, []);
+
+    const style = {
+        height: 320,
+        width: 248,
+    }
+
+    useInterval(async () => {
+        if (isInitialized) {
+            const video = webcamRef.current?.video;
+
+            if (!video) return
+
+            matchDimensions(video, style);
+
+            const detection = await detectSingleFace(
+                video,
+                new TinyFaceDetectorOptions()
+            );
+
+            if (!detection) return
+
+            if (detection.score < 0.5) {
+                toastHandler.error("Face not clear enough")
+                return
+            } else {
+                setShowSmileMessage("hasSmile");
+            }
+
+            const smileDetection = await detectSingleFace(
+                video,
+                new TinyFaceDetectorOptions()
+            ).withFaceExpressions()
+
+            if((smileDetection?.expressions.happy ?? 0) <= 0.5) {
+                return
+            } else {
+                setShowSmileMessage("stopSmiling");
+            }
+
+            setTimeout(() => {
+                capture();
+                setShowSmileMessage(null)
+            }, 900);
+
+        }
+    }, 1000)
+
+    const handleSubmit = async () => {
         if (imgSrc && token) {
             const formData = new FormData();
             formData.append("verification_type", "face_verification");
@@ -89,24 +158,19 @@ const VerificationContainer = () => {
                         ref={webcamRef}
                         audio={false}
                         forceScreenshotSourceSize
-                        screenshotFormat="image/jpeg"
                         videoConstraints={{
                             facingMode: "Front",
                         }}
-                        style={{
-                            height: 320,
-                            objectFit: "cover",
-                            width: 248,
-                        }}
+                        style={{ ...style, objectFit: "cover", }}
                     />
                 )}
             </div>
 
-            {!imgSrc && (
-                <Button onClick={capture} className="w-fit mx-auto mt-5">
-                    Take Photo
-                </Button>
-            )}
+            {!imgSrc && showSmileMessage === "hasSmile" ? (
+                <p className="mt-5">Please smile</p>
+            ) : showSmileMessage === "stopSmiling" ? (
+                <p className="mt-5">Stop Smiling</p>
+            ) : null}
 
             {imgSrc && (
                 <div className="flex items-center justify-center gap-2">
