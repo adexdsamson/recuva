@@ -3,7 +3,7 @@
 import Webcam from "react-webcam";
 import Container from "@/components/layouts/Container";
 import PoweredByAutogon from "@/assets/power-by-autogon.svg";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { postRequest } from "@/lib/axiosInstance";
@@ -15,7 +15,7 @@ import {
 import { useVerificationToken } from "@/store/authSlice";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { useNavigate } from "react-router-dom";
-import { nets, detectSingleFace, TinyFaceDetectorOptions, matchDimensions } from 'face-api.js';
+import { detectSingleFace, TinyFaceDetectorOptions, matchDimensions, FaceExpressions} from 'face-api.js';
 import { useInterval } from "usehooks-ts";
 
 export const FaceVerification = () => {
@@ -35,15 +35,8 @@ const VerificationContainer = () => {
     const toastHandler = useToastHandlers();
     const webcamRef = useRef<Webcam | null>(null);
     const [imgSrc, setImgSrc] = useState<string | null>(null);
-    const [isInitialized, setIsInitialized] = useState(false);
-    const [showSmileMessage, setShowSmileMessage] = useState<"hasSmile" | "stopSmiling" | null>(null);
+    const [faceDescriptor, setFaceDescriptor] = useState<Float32Array>();
 
-    // create a capture function
-    const capture = () => {
-        const imageSrc = webcamRef.current?.getScreenshot();
-        if (!imageSrc) return
-        setImgSrc(imageSrc);
-    };
 
     const { mutate, isPending } = useMutation<
         ApiResponse<FaceVerificationResponse>,
@@ -58,7 +51,7 @@ const VerificationContainer = () => {
             }),
         onSuccess: (data) => {
             toastHandler.success("Face Verification", data.data.message);
-            navigate("/verification/id-identity");
+            navigate("/verification/id-identity", { state: faceDescriptor });
         },
         onError: (error) => {
             toastHandler.error(
@@ -68,69 +61,49 @@ const VerificationContainer = () => {
         },
     });
 
-    const onInitializeModel = async () => {
-        Promise.all([
-            await nets.tinyFaceDetector.loadFromUri(`/models`),
-            await nets.faceExpressionNet.loadFromUri('/models')
-        ]).then(() => {
-            setIsInitialized(true)
-        }).catch((error) => {
-            console.log("onInitializeModel", error)
-            setIsInitialized(false)
-        })
-    }
-
-    useEffect(() => {
-        if (!isInitialized) {
-            onInitializeModel();
-        }
-    }, []);
-
     const style = {
         height: 320,
         width: 248,
     }
 
-    useInterval(async () => {
-        if (isInitialized) {
-            const video = webcamRef.current?.video;
+    const checkLiveliness = (expressions?: FaceExpressions) => {
+        if (!expressions) return false;
 
-            if (!video) return
+        // Simplistic approach: check if the person is smiling or has another expression
+        const { happy, neutral, surprised } = expressions;
+        return happy > 0.5 || neutral > 0.5 || surprised > 0.5;
+    };
 
-            matchDimensions(video, style);
+    const onCapture = async () => {
+        if (!webcamRef.current) return;
 
-            const detection = await detectSingleFace(
-                video,
-                new TinyFaceDetectorOptions()
-            );
+        const video = webcamRef.current?.video;
 
-            if (!detection) return
+        if (!video) return;
 
-            if (detection.score < 0.5) {
-                toastHandler.error("Face not clear enough")
-                return
-            } else {
-                setShowSmileMessage("hasSmile");
-            }
+        const detections = await detectSingleFace(video, new TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceExpressions()
+            .withFaceDescriptor();
 
-            const smileDetection = await detectSingleFace(
-                video,
-                new TinyFaceDetectorOptions()
-            ).withFaceExpressions()
+        if (detections && detections.detection.score < 0.9) return;
 
-            if((smileDetection?.expressions.happy ?? 0) <= 0.5) {
-                return
-            } else {
-                setShowSmileMessage("stopSmiling");
-            }
+        const isLiveliness = checkLiveliness(detections?.expressions);
 
-            setTimeout(() => {
-                capture();
-                setShowSmileMessage(null)
-            }, 900);
+        if (!isLiveliness) return;
 
-        }
-    }, 1000)
+        setFaceDescriptor(detections?.descriptor);
+
+        matchDimensions(video, style);
+
+        const imageSrc = webcamRef.current?.getScreenshot();
+
+        if (!imageSrc) return;
+
+        setImgSrc(imageSrc);
+    }
+
+    useInterval(onCapture, 1000)
 
     const handleSubmit = async () => {
         if (imgSrc && token) {
@@ -151,9 +124,7 @@ const VerificationContainer = () => {
                 className="shrink-0 mt-12 rounded-full mx-auto bg-zinc-300 w-[15.5rem] h-[20rem] relative overflow-hidden"
                 aria-label="Face verification frame"
             >
-                {imgSrc ? (
-                    <img src={imgSrc} className="w-full h-full object-cover" />
-                ) : (
+                {!imgSrc && (
                     <Webcam
                         ref={webcamRef}
                         audio={false}
@@ -164,13 +135,16 @@ const VerificationContainer = () => {
                         style={{ ...style, objectFit: "cover", }}
                     />
                 )}
+                {imgSrc && (
+                    <img src={imgSrc} className="w-full h-full object-cover" />
+                )}
             </div>
 
-            {!imgSrc && showSmileMessage === "hasSmile" ? (
+            {/* {!imgSrc && showSmileMessage === "hasSmile" ? (
                 <p className="mt-5">Please smile</p>
             ) : showSmileMessage === "stopSmiling" ? (
                 <p className="mt-5">Stop Smiling</p>
-            ) : null}
+            ) : null} */}
 
             {imgSrc && (
                 <div className="flex items-center justify-center gap-2">
