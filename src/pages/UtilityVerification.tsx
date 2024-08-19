@@ -14,6 +14,7 @@ import {
 import { useVerificationToken } from "@/store/authSlice";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { LuShieldCheck } from "react-icons/lu";
+import { useMediaQuery } from 'usehooks-ts';
 
 export const UtilityVerification = () => {
   return (
@@ -31,6 +32,7 @@ const VerificationContainer = () => {
   const toastHandler = useToastHandlers();
   const webcamRef = useRef<Webcam | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
+    const isMobile = useMediaQuery('(max-width: 768px)')
 
   // create a capture function
   const capture = useCallback(() => {
@@ -105,7 +107,7 @@ const VerificationContainer = () => {
             forceScreenshotSourceSize
             screenshotFormat="image/jpeg"
             videoConstraints={{
-              facingMode: "Front",
+                facingMode: isMobile ? { exact: "environment" } : "user",
             }}
             style={{
               height: 480,

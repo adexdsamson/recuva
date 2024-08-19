@@ -16,7 +16,7 @@ import { useVerificationToken } from "@/store/authSlice";
 import { useToastHandlers } from "@/hooks/useToaster";
 import { useNavigate } from "react-router-dom";
 import { detectSingleFace, TinyFaceDetectorOptions, matchDimensions, FaceExpressions} from 'face-api.js';
-import { useInterval } from "usehooks-ts";
+import { useInterval, useMediaQuery } from "usehooks-ts";
 
 export const FaceVerification = () => {
     return (
@@ -36,6 +36,7 @@ const VerificationContainer = () => {
     const webcamRef = useRef<Webcam | null>(null);
     const [imgSrc, setImgSrc] = useState<string | null>(null);
     const [faceDescriptor, setFaceDescriptor] = useState<Float32Array>();
+    const isMobile = useMediaQuery('(max-width: 768px)')
 
 
     const { mutate, isPending } = useMutation<
@@ -130,7 +131,7 @@ const VerificationContainer = () => {
                         audio={false}
                         forceScreenshotSourceSize
                         videoConstraints={{
-                            facingMode: "Front",
+                            facingMode: isMobile ? { exact: "environment" } : "user",
                         }}
                         style={{ ...style, objectFit: "cover", }}
                     />
